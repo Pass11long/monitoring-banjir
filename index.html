@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitoring Ketinggian Air</title>
+  <!-- Library MQTT.js via CDN -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f4f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 320px;
+    }
+    h2 {
+      margin-top: 0;
+      color: #334155;
+      font-size: 20px;
+    }
+    .koneksi {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 20px;
+    }
+    .nilai-air {
+      font-size: 56px;
+      font-weight: bold;
+      color: #0f172a;
+      margin: 10px 0;
+    }
+    .satuan {
+      font-size: 20px;
+      color: #64748b;
+    }
+    .badge-status {
+      display: inline-block;
+      padding: 10px 24px;
+      border-radius: 50px;
+      font-weight: bold;
+      font-size: 18px;
+      color: white;
+      background-color: #94a3b8; /* Default abu-abu */
+      margin-top: 15px;
+      transition: background-color 0.3s ease;
+    }
+    .aman { background-color: #22c55e; }
+    .waspada { background-color: #eab308; }
+    .bahaya { background-color: #ef4444; }
+    .error { background-color: #64748b; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>SMART FLOOD WARNING</h2>
+    <div id="status-koneksi" class="koneksi">Menghubungkan ke server...</div>
+    
+    <div class="nilai-air">
+      <span id="tinggi">--.-</span> <span class="satuan">cm</span>
+    </div>
+
+    <div id="status-badge" class="badge-status">MENUNGGU DATA</div>
+  </div>
+
+  <script>
+    // HARUS SAMA PERSIS DENGAN TOPIK DI KODE ESP32
+    const mqttTopic = "banjir_yusuf_2026/sensor1";
+    
+    // Broker HiveMQ via Secure WebSockets (WSS) agar berjalan di HTTPS GitHub Pages
+    const brokerUrl = "wss://broker.hivemq.com:8884/mqtt";
+
+    const statusKoneksiEl = document.getElementById("status-koneksi");
+    const tinggiEl = document.getElementById("tinggi");
+    const badgeEl = document.getElementById("status-badge");
+
+    // Inisialisasi koneksi MQTT
+    const client = mqtt.connect(brokerUrl);
+
+    client.on("connect", () => {
+      statusKoneksiEl.innerText = "🟢 Terhubung (Live)";
+      client.subscribe(mqttTopic, (err) => {
+        if (err) {
+          statusKoneksiEl.innerText = "🔴 Gagal subscribe topik";
+        }
+      });
+    });
+
+    // Saat data baru masuk dari ESP32
+    client.on("message", (topic, message) => {
+      try {
+        // Mengurai data JSON dari ESP32
+        const data = JSON.parse(message.toString());
+        
+        // Update angka tinggi air
+        tinggiEl.innerText = data.tinggi.toFixed(1);
+        
+        // Update teks dan warna status
+        badgeEl.innerText = data.status;
+        badgeEl.className = "badge-status " + data.status.toLowerCase();
+      } catch (e) {
+        console.error("Format data tidak sesuai:", e);
+      }
+    });
+
+    client.on("error", (err) => {
+      statusKoneksiEl.innerText = "🔴 Koneksi terputus";
+      console.error(err);
+    });
+  </script>
+
+</body>
+</html>
