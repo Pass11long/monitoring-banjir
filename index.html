@@ -4,41 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitoring Ketinggian Air</title>
-  <!-- Library MQTT.js via CDN -->
+  <!-- Library MQTT.js & Firebase Compat SDK -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: #f0f4f8;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     .card {
       background: white;
-      padding: 30px 40px;
+      padding: 25px 35px;
       border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
       text-align: center;
-      width: 320px;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 20px;
+      box-sizing: border-box;
     }
-    h2 {
+    h2, h3 {
       margin-top: 0;
       color: #334155;
-      font-size: 20px;
     }
     .koneksi {
-      font-size: 12px;
+      font-size: 13px;
       color: #64748b;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
     .nilai-air {
-      font-size: 56px;
+      font-size: 54px;
       font-weight: bold;
       color: #0f172a;
-      margin: 10px 0;
+      margin: 5px 0;
     }
     .satuan {
       font-size: 20px;
@@ -46,78 +50,181 @@
     }
     .badge-status {
       display: inline-block;
-      padding: 10px 24px;
+      padding: 8px 22px;
       border-radius: 50px;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 16px;
       color: white;
-      background-color: #94a3b8; /* Default abu-abu */
-      margin-top: 15px;
-      transition: background-color 0.3s ease;
+      background-color: #94a3b8;
+      margin-top: 10px;
     }
     .aman { background-color: #22c55e; }
     .waspada { background-color: #eab308; }
     .bahaya { background-color: #ef4444; }
     .error { background-color: #64748b; }
+
+    /* Styling Tabel Riwayat */
+    .header-tabel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .btn-csv {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-csv:hover { background-color: #1d4ed8; }
+    .table-container {
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: center;
+    }
+    th {
+      background-color: #f8fafc;
+      color: #475569;
+      padding: 10px;
+      position: sticky;
+      top: 0;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    td {
+      padding: 9px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+    }
   </style>
 </head>
 <body>
 
+  <!-- KARTU 1: LIVE MONITORING (MQTT) -->
   <div class="card">
     <h2>SMART FLOOD WARNING</h2>
     <div id="status-koneksi" class="koneksi">Menghubungkan ke server...</div>
-    
     <div class="nilai-air">
       <span id="tinggi">--.-</span> <span class="satuan">cm</span>
     </div>
-
     <div id="status-badge" class="badge-status">MENUNGGU DATA</div>
   </div>
 
-  <script>
-    // HARUS SAMA PERSIS DENGAN TOPIK DI KODE ESP32
-    const mqttTopic = "banjir_yusuf_2026/sensor1";
-    
-    // Broker HiveMQ via Secure WebSockets (WSS) agar berjalan di HTTPS GitHub Pages
-    const brokerUrl = "wss://broker.hivemq.com:8884/mqtt";
+  <!-- KARTU 2: RIWAYAT DATA PER MENIT (FIREBASE) -->
+  <div class="card">
+    <div class="header-tabel">
+      <h3 style="margin:0; font-size:17px;">Riwayat Pembacaan (Per Menit)</h3>
+      <button class="btn-csv" onclick="downloadCSV()">Unduh CSV</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Jam (WIB)</th>
+            <th>Tinggi (cm)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tabel-riwayat">
+          <tr><td colspan="4">Memuat data riwayat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
+  <script>
+    // ==========================================
+    // KONFIGURASI MQTT & FIREBASE (SESUAIKAN)
+    // ==========================================
+    const mqttTopic = "proyek_banjir/Bekasi/data";
+    const firebaseUrl = "https://monitoring-banjir-a75c2-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+    // 1. Koneksi MQTT untuk Live Update
+    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
     const statusKoneksiEl = document.getElementById("status-koneksi");
     const tinggiEl = document.getElementById("tinggi");
     const badgeEl = document.getElementById("status-badge");
 
-    // Inisialisasi koneksi MQTT
-    const client = mqtt.connect(brokerUrl);
-
     client.on("connect", () => {
       statusKoneksiEl.innerText = "🟢 Terhubung (Live)";
-      client.subscribe(mqttTopic, (err) => {
-        if (err) {
-          statusKoneksiEl.innerText = "🔴 Gagal subscribe topik";
-        }
+      client.subscribe(mqttTopic);
+    });
+
+    client.on("message", (topic, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        tinggiEl.innerText = data.tinggi.toFixed(1);
+        badgeEl.innerText = data.status;
+        badgeEl.className = "badge-status " + data.status.toLowerCase();
+      } catch (e) {}
+    });
+
+    // 2. Koneksi Firebase untuk Riwayat Per Menit
+    firebase.initializeApp({ databaseURL: firebaseUrl });
+    const db = firebase.database();
+    const riwayatRef = db.ref("riwayat").limitToLast(50); // Ambil 50 data terakhir
+
+    let dataLogArray = [];
+
+    riwayatRef.on("value", (snapshot) => {
+      const tbody = document.getElementById("tabel-riwayat");
+      tbody.innerHTML = "";
+      dataLogArray = [];
+
+      if (!snapshot.exists()) {
+        tbody.innerHTML = '<tr><td colspan="4">Belum ada data tersimpan.</td></tr>';
+        return;
+      }
+
+      snapshot.forEach((childSnapshot) => {
+        const item = childSnapshot.val();
+        dataLogArray.push(item);
+      });
+
+      // Balik urutan agar data terbaru muncul di baris paling atas
+      const reversedData = [...dataLogArray].reverse();
+
+      reversedData.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.tanggal}</td>
+          <td>${row.jam}</td>
+          <td><b>${Number(row.tinggi).toFixed(1)}</b></td>
+          <td>${row.status}</td>
+        `;
+        tbody.appendChild(tr);
       });
     });
 
-    // Saat data baru masuk dari ESP32
-    client.on("message", (topic, message) => {
-      try {
-        // Mengurai data JSON dari ESP32
-        const data = JSON.parse(message.toString());
-        
-        // Update angka tinggi air
-        tinggiEl.innerText = data.tinggi.toFixed(1);
-        
-        // Update teks dan warna status
-        badgeEl.innerText = data.status;
-        badgeEl.className = "badge-status " + data.status.toLowerCase();
-      } catch (e) {
-        console.error("Format data tidak sesuai:", e);
+    // 3. Fungsi Ekspor Tabel ke File CSV
+    function downloadCSV() {
+      if (dataLogArray.length === 0) {
+        alert("Belum ada data untuk diunduh.");
+        return;
       }
-    });
-
-    client.on("error", (err) => {
-      statusKoneksiEl.innerText = "🔴 Koneksi terputus";
-      console.error(err);
-    });
+      let csvContent = "data:text/csv;charset=utf-8,Tanggal,Jam,Tinggi_Air_cm,Status\n";
+      dataLogArray.forEach((row) => {
+        csvContent += `${row.tanggal},${row.jam},${row.tinggi},${row.status}\n`;
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "riwayat_ketinggian_air.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   </script>
 
 </body>
