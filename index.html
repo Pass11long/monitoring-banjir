@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitoring Ketinggian Air</title>
-  <!-- Library MQTT.js & Firebase Compat SDK -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -63,7 +62,6 @@
     .bahaya { background-color: #ef4444; }
     .error { background-color: #64748b; }
 
-    /* Styling Tabel Riwayat */
     .header-tabel {
       display: flex;
       justify-content: space-between;
@@ -144,9 +142,6 @@
   </div>
 
   <script>
-    // ==========================================
-    // KONFIGURASI MQTT & FIREBASE (SESUAIKAN)
-    // ==========================================
     const mqttTopic = "proyek_banjir/Bekasi/data";
     const firebaseUrl = "https://monitoring-banjir-a75c2-default-rtdb.asia-southeast1.firebasedatabase.app";
 
@@ -173,7 +168,7 @@
     // 2. Koneksi Firebase untuk Riwayat Per Menit
     firebase.initializeApp({ databaseURL: firebaseUrl });
     const db = firebase.database();
-    const riwayatRef = db.ref("riwayat").limitToLast(50); // Ambil 50 data terakhir
+    const riwayatRef = db.ref("riwayat").limitToLast(50);
 
     let dataLogArray = [];
 
@@ -192,7 +187,6 @@
         dataLogArray.push(item);
       });
 
-      // Balik urutan agar data terbaru muncul di baris paling atas
       const reversedData = [...dataLogArray].reverse();
 
       reversedData.forEach((row) => {
@@ -205,6 +199,9 @@
         `;
         tbody.appendChild(tr);
       });
+    }, (error) => {
+      document.getElementById("tabel-riwayat").innerHTML = 
+        '<tr><td colspan="4" style="color:red;">Error akses Firebase: ' + error.message + '</td></tr>';
     });
 
     // 3. Fungsi Ekspor Tabel ke File CSV
