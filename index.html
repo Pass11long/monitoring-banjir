@@ -2,227 +2,490 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monitoring Ketinggian Air</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Flood Warning V2</title>
+  <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f0f4f8;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .card {
-      background: white;
-      padding: 25px 35px;
-      border-radius: 16px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-      text-align: center;
-      width: 100%;
-      max-width: 480px;
-      margin-bottom: 20px;
+    * {
       box-sizing: border-box;
     }
-    h2, h3 {
-      margin-top: 0;
-      color: #334155;
-    }
-    .koneksi {
-      font-size: 13px;
-      color: #64748b;
-      margin-bottom: 15px;
-    }
-    .nilai-air {
-      font-size: 54px;
-      font-weight: bold;
-      color: #0f172a;
-      margin: 5px 0;
-    }
-    .satuan {
-      font-size: 20px;
-      color: #64748b;
-    }
-    .badge-status {
-      display: inline-block;
-      padding: 8px 22px;
-      border-radius: 50px;
-      font-weight: bold;
-      font-size: 16px;
-      color: white;
-      background-color: #94a3b8;
-      margin-top: 10px;
-    }
-    .aman { background-color: #22c55e; }
-    .waspada { background-color: #eab308; }
-    .bahaya { background-color: #ef4444; }
-    .error { background-color: #64748b; }
 
-    .header-tabel {
+    body {
+      font: 15px system-ui, sans-serif;
+      background: #eef3f8;
+      color: #203249;
+      margin: 0;
+    }
+
+    main {
+      max-width: 1000px;
+      margin: auto;
+      padding: 24px;
+    }
+
+    header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    .btn-csv {
-      background-color: #2563eb;
+
+    h1 {
+      font-size: 26px;
+      margin: 0;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 0 0 16px;
+    }
+
+    small,
+    .muted {
+      color: #64748b;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #dce5ee;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+
+    .grid .card {
+      margin: 0;
+    }
+
+    .value {
+      font-size: 30px;
+      font-weight: 700;
+      margin: 10px 0 4px;
+    }
+
+    .value.status {
+      font-size: 21px;
+    }
+
+    .safe {
+      color: #168347;
+    }
+
+    .warn {
+      color: #976300;
+    }
+
+    .danger {
+      color: #bb2424;
+    }
+
+    .error {
+      color: #64748b;
+    }
+
+    button {
+      background: #175d9b;
       color: white;
-      border: none;
-      padding: 8px 14px;
+      border: 0;
       border-radius: 8px;
-      font-size: 13px;
+      padding: 10px 15px;
       cursor: pointer;
-      font-weight: 600;
     }
-    .btn-csv:hover { background-color: #1d4ed8; }
-    .table-container {
-      max-height: 320px;
-      overflow-y: auto;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-    }
+
     table {
-      width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
-      text-align: center;
+      width: 100%;
+      font-size: 13px;
     }
+
+    td,
     th {
-      background-color: #f8fafc;
-      color: #475569;
+      text-align: left;
+      border-bottom: 1px solid #e6edf3;
       padding: 10px;
-      position: sticky;
-      top: 0;
-      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
     }
-    td {
-      padding: 9px;
-      border-bottom: 1px solid #f1f5f9;
-      color: #1e293b;
+
+    th {
+      background: #f1f5f9;
+    }
+
+    .scroll {
+      overflow: auto;
+      max-height: 360px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 260px;
+      display: block;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      font-size: 12px;
+      color: #64748b;
+      margin: 10px 0;
+    }
+
+    .notice {
+      padding: 12px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      main {
+        padding: 14px;
+      }
+
+      .value {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
 <body>
+  <main>
+    <header>
+      <div>
+        <h1>SMART FLOOD WARNING / V2</h1>
+        <small>ESP32 · Monitoring dan peringatan dini</small>
+      </div>
+      <div id="connection" class="muted">Menghubungkan broker...</div>
+    </header>
 
-  <!-- KARTU 1: LIVE MONITORING (MQTT) -->
-  <div class="card">
-    <h2>SMART FLOOD WARNING</h2>
-    <div id="status-koneksi" class="koneksi">Menghubungkan ke server...</div>
-    <div class="nilai-air">
-      <span id="tinggi">--.-</span> <span class="satuan">cm</span>
-    </div>
-    <div id="status-badge" class="badge-status">MENUNGGU DATA</div>
-  </div>
+    <div class="grid">
+      <section class="card">
+        <small>Ketinggian terfilter</small>
+        <div id="height" class="value">--</div>
+        <small id="raw">Mentah: --</small>
+      </section>
 
-  <!-- KARTU 2: RIWAYAT DATA PER MENIT (FIREBASE) -->
-  <div class="card">
-    <div class="header-tabel">
-      <h3 style="margin:0; font-size:17px;">Riwayat Pembacaan </h3>
-      <button class="btn-csv" onclick="downloadCSV()">Unduh CSV</button>
+      <section class="card">
+        <small>Laju perubahan</small>
+        <div id="rate" class="value">--</div>
+        <small>cm/menit · regresi 10 detik</small>
+      </section>
+
+      <section class="card">
+        <small>Estimasi menuju 20 cm</small>
+        <div id="eta" class="value">--</div>
+        <small>Asumsi laju konstan</small>
+      </section>
+
+      <section class="card">
+        <small>Status peringatan</small>
+        <div id="status" class="value status error">MENUNGGU</div>
+        <small id="level">Status tinggi: --</small>
+      </section>
     </div>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Tanggal</th>
-            <th>Jam (WIB)</th>
-            <th>Tinggi (cm)</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="tabel-riwayat">
-          <tr><td colspan="4">Memuat data riwayat...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+
+    <section class="card">
+      <h2>Tren ketinggian air</h2>
+      <canvas id="chart" aria-label="Grafik riwayat ketinggian air"></canvas>
+      <div class="legend">Biru: terfilter · Abu-abu: mentah · Kuning: 10 cm · Merah: 20 cm</div>
+      <small>Grafik menggunakan hingga 360 catatan terakhir dari Firebase (termasuk catatan offline yang berhasil dikirim ulang).</small>
+      <div id="notice" class="notice">Belum menerima data perangkat.</div>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <h2>Riwayat pengukuran</h2>
+        <button id="csv">Unduh CSV (360 terakhir)</button>
+      </div>
+      <small id="dbstatus">Menghubungkan Firebase...</small>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Jam WIB</th>
+              <th>Mentah (cm)</th>
+              <th>Terfilter (cm)</th>
+              <th>Laju (cm/mnt)</th>
+              <th>ETA (mnt)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <small>Prototipe laboratorium. Estimasi bukan prediksi banjir lapangan. Data dapat terlambat saat jaringan terputus.</small>
+  </main>
 
   <script>
-    const mqttTopic = "proyek_banjir/Bekasi/data";
-    const firebaseUrl = "https://monitoring-banjir-a75c2-default-rtdb.asia-southeast1.firebasedatabase.app";
+    'use strict';
 
-    // 1. Koneksi MQTT untuk Live Update
-    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-    const statusKoneksiEl = document.getElementById("status-koneksi");
-    const tinggiEl = document.getElementById("tinggi");
-    const badgeEl = document.getElementById("status-badge");
+    const TOPIC = 'proyek_banjir/Bekasi/data';
+    const DB = 'https://monitoring-banjir-a75c2-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-    client.on("connect", () => {
-      statusKoneksiEl.innerText = "🟢 Terhubung (Live)";
-      client.subscribe(mqttTopic);
+    const $ = id => document.getElementById(id);
+    const finite = v => typeof v === 'number' && Number.isFinite(v);
+    const fmt = (v, n = 1) => finite(v) ? v.toFixed(n) : '--';
+
+    let history = [];
+    let last = 0;
+    let broker = false;
+    let latest = null;
+
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+      reconnectPeriod: 2000
     });
 
-    client.on("message", (topic, message) => {
-      try {
-        const data = JSON.parse(message.toString());
-        tinggiEl.innerText = data.tinggi.toFixed(1);
-        badgeEl.innerText = data.status;
-        badgeEl.className = "badge-status " + data.status.toLowerCase();
-      } catch (e) {}
-    });
+    function refresh() {
+      let fresh = broker && last && Date.now() - last < 10000;
 
-    // 2. Koneksi Firebase untuk Riwayat Per Menit
-    firebase.initializeApp({ databaseURL: firebaseUrl });
-    const db = firebase.database();
-    const riwayatRef = db.ref("riwayat").limitToLast(50);
+      $('connection').textContent = !broker
+        ? 'Broker terputus'
+        : fresh
+          ? 'Broker terhubung · data diterima'
+          : 'Broker terhubung · perangkat belum mengirim / data kedaluwarsa';
 
-    let dataLogArray = [];
+      let d = latest;
 
-    riwayatRef.on("value", (snapshot) => {
-      const tbody = document.getElementById("tabel-riwayat");
-      tbody.innerHTML = "";
-      dataLogArray = [];
-
-      if (!snapshot.exists()) {
-        tbody.innerHTML = '<tr><td colspan="4">Belum ada data tersimpan.</td></tr>';
+      if (!fresh || !d) {
+        ['height', 'rate', 'eta'].forEach(id => $(id).textContent = '--');
+        $('raw').textContent = 'Mentah: --';
+        $('level').textContent = 'Status tinggi: --';
+        $('status').textContent = last ? 'DATA TIDAK AKTUAL' : 'MENUNGGU';
+        $('status').className = 'value status error';
+        $('notice').textContent = 'Jangan anggap tidak adanya data sebagai kondisi aman.';
         return;
       }
 
-      snapshot.forEach((childSnapshot) => {
-        const item = childSnapshot.val();
-        dataLogArray.push(item);
-      });
+      let valid = d.valid !== false && d.status !== 'ERROR' && finite(d.tinggi);
 
-      const reversedData = [...dataLogArray].reverse();
+      $('height').textContent = valid ? fmt(d.tinggi) + ' cm' : '--';
+      $('raw').textContent = 'Mentah: ' + fmt(d.raw) + ' cm';
+      $('rate').textContent = valid ? fmt(d.rate) : '--';
 
-      reversedData.forEach((row) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.tanggal}</td>
-          <td>${row.jam}</td>
-          <td><b>${Number(row.tinggi).toFixed(1)}</b></td>
-          <td>${row.status}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }, (error) => {
-      document.getElementById("tabel-riwayat").innerHTML = 
-        '<tr><td colspan="4" style="color:red;">Error akses Firebase: ' + error.message + '</td></tr>';
-    });
+      $('eta').textContent = !valid
+        ? '--'
+        : d.tinggi >= 20
+          ? 'Tercapai'
+          : finite(d.eta)
+            ? fmt(d.eta) + ' mnt'
+            : 'Belum terestimasi';
 
-    // 3. Fungsi Ekspor Tabel ke File CSV
-    function downloadCSV() {
-      if (dataLogArray.length === 0) {
-        alert("Belum ada data untuk diunduh.");
-        return;
-      }
-      let csvContent = "data:text/csv;charset=utf-8,Tanggal,Jam,Tinggi_Air_cm,Status\n";
-      dataLogArray.forEach((row) => {
-        csvContent += `${row.tanggal},${row.jam},${row.tinggi},${row.status}\n`;
-      });
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "riwayat_ketinggian_air.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      $('status').textContent = valid ? String(d.status) : 'SENSOR ERROR';
+      $('status').className = 'value status ' + (
+        !valid
+          ? 'error'
+          : d.status === 'BAHAYA'
+            ? 'danger'
+            : d.status === 'AMAN'
+              ? 'safe'
+              : 'warn'
+      );
+
+      $('level').textContent = 'Status tinggi: ' + (valid ? (d.level || d.status) : '--');
+
+      $('notice').textContent =
+        'Data diterima ' +
+        new Date(last).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' }) +
+        ' WIB. ' +
+        (!valid
+          ? 'Periksa sensor dan alarm lokal.'
+          : d.status === 'WASPADA DINI'
+            ? 'Kenaikan cepat; batas bahaya diperkirakan dekat.'
+            : 'Estimasi berlaku jika tren kenaikan berlanjut.');
     }
-  </script>
 
+    client.on('connect', () => {
+      broker = true;
+      last = 0;
+      client.subscribe(TOPIC);
+      refresh();
+    });
+
+    client.on('close', () => {
+      broker = false;
+      refresh();
+    });
+
+    client.on('error', () => {
+      broker = false;
+      refresh();
+    });
+
+    client.on('message', (topic, msg, packet) => {
+      if (topic !== TOPIC || packet.retain) return;
+      try {
+        const d = JSON.parse(msg.toString());
+        if (!d || typeof d.status !== 'string') return;
+        latest = d;
+        last = Date.now();
+        refresh();
+      } catch (e) {
+        console.warn(e);
+      }
+    });
+
+    setInterval(refresh, 1000);
+
+    function draw() {
+      const c = $('chart');
+      const w = c.clientWidth;
+      const h = 260;
+      const dpr = devicePixelRatio || 1;
+
+      c.width = w * dpr;
+      c.height = h * dpr;
+
+      const ctx = c.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const L = 40;
+      const R = w - 14;
+      const T = 12;
+      const B = h - 28;
+      const y = v => B - v / 31 * (B - T);
+
+      ctx.font = '11px system-ui';
+
+      for (let v of [0, 10, 20, 30]) {
+        ctx.strokeStyle = v === 10 ? '#c99422' : v === 20 ? '#c33b3b' : '#dce5ee';
+        ctx.setLineDash(v === 10 || v === 20 ? [5, 4] : []);
+        ctx.beginPath();
+        ctx.moveTo(L, y(v));
+        ctx.lineTo(R, y(v));
+        ctx.stroke();
+
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(v + ' cm', 2, y(v) + 4);
+      }
+
+      ctx.setLineDash([]);
+
+      for (const [key, color] of [['raw', '#9aa9b9'], ['tinggi', '#176ab0']]) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = key === 'tinggi' ? 2 : 1;
+        ctx.beginPath();
+
+        let active = false;
+
+        history.forEach((d, i) => {
+          if (d.valid === false || d.status === 'ERROR' || !finite(d[key])) {
+            active = false;
+            return;
+          }
+
+          const x = L + i / Math.max(1, history.length - 1) * (R - L);
+
+          if (active) {
+            ctx.lineTo(x, y(d[key]));
+          } else {
+            ctx.moveTo(x, y(d[key]));
+          }
+
+          active = true;
+        });
+
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('Urutan pencatatan (lama → baru)', L, h - 8);
+    }
+
+    window.addEventListener('resize', draw);
+    draw();
+
+    firebase.initializeApp({ databaseURL: DB });
+
+    firebase.database().ref('riwayat').limitToLast(360).on('value', snap => {
+      history = [];
+      snap.forEach(child => {
+        const d = child.val();
+        if (d && typeof d === 'object') history.push(d);
+      });
+
+      $('dbstatus').textContent = history.length + ' catatan dimuat';
+      $('rows').replaceChildren();
+
+      for (const d of [...history].reverse()) {
+        const tr = document.createElement('tr');
+        const cells = [
+          d.tanggal || 'Waktu belum sinkron',
+          d.jam || '--',
+          fmt(d.raw),
+          fmt(d.tinggi),
+          fmt(d.rate),
+          fmt(d.eta),
+          d.status || '--'
+        ];
+
+        for (const v of cells) {
+          const td = document.createElement('td');
+          td.textContent = v;
+          tr.append(td);
+        }
+
+        $('rows').append(tr);
+      }
+
+      draw();
+    }, err => {
+      $('dbstatus').textContent = 'Firebase gagal: ' + err.message;
+    });
+
+    $('csv').onclick = () => {
+      if (!history.length) {
+        alert('Belum ada data');
+        return;
+      }
+
+      const escape = v => {
+        let s = String(v ?? '');
+        if (/^[=+@-]/.test(s) && typeof v !== 'number') {
+          s = "'" + s;
+        }
+        return '"' + s.replaceAll('"', '""') + '"';
+      };
+
+      const keys = [
+        'tanggal', 'jam', 'epoch', 'uptime_ms', 'seq',
+        'raw', 'tinggi', 'rate', 'eta', 'level', 'status', 'valid'
+      ];
+
+      const text = [
+        keys.join(','),
+        ...history.map(d => keys.map(k => escape(d[k])).join(','))
+      ].join('\n');
+
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'smart_flood_v2.csv';
+      a.click();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+  </script>
 </body>
 </html>
